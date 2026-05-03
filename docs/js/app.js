@@ -204,8 +204,9 @@ async function runAnalyze() {
   state.lastReport = report;
 
   log('Done. Rendering report…');
-  render(report, candles);
+  // Show results FIRST so the chart container has real dimensions when we create the chart.
   $('results').classList.remove('hidden');
+  render(report, candles);
 }
 
 // ---- Render ----
@@ -228,11 +229,12 @@ function render(report, candles) {
     sig.poolFeeBps != null ? kv('Effective pool fee', `${(sig.poolFeeBps / 10000).toFixed(3)}%`) : '',
   ].join('');
 
-  // Round-trip table
+  // Round-trip table — add data-danger for CSS threshold coloring (per Zara's hook request)
   $('rtTable').innerHTML = sig.roundTrip ? Object.entries(sig.roundTrip).map(([k, r]) => {
     const m = k.match(/trade(\d+)/);
     const size = m ? `$${m[1]}` : k;
-    return `<tr><td>${size}</td><td class="mono">${fmtPct(r.totalPct)}</td><td class="mono">${fmtPct(r.feePct)}</td><td class="mono">${fmtPct(r.slippagePct)}</td><td class="mono">${fmtPct(r.gasPct)}</td></tr>`;
+    const danger = r.totalPct > 10 ? 'high' : r.totalPct > 5 ? 'mid' : 'low';
+    return `<tr data-danger="${danger}"><td>${size}</td><td class="mono">${fmtPct(r.totalPct)}</td><td class="mono">${fmtPct(r.feePct)}</td><td class="mono">${fmtPct(r.slippagePct)}</td><td class="mono">${fmtPct(r.gasPct)}</td></tr>`;
   }).join('') : '';
 
   // Reasons
@@ -266,7 +268,17 @@ function render(report, candles) {
     `<tr><td>${i + 1}</td><td class="mono"><a href="https://basescan.org/address/${escapeHtml(h.address)}" target="_blank">${escapeHtml(h.address)}</a></td><td class="mono">${escapeHtml(h.balanceFmt)}</td></tr>`
   ).join('');
   const c = report.holders.concentration;
-  $('holdersFooter').textContent = `Total holders: ${report.holders.holderCount} · Top10 ${fmtPct(c.top10Pct)} · Top50 ${fmtPct(c.top50Pct)} · Top100 ${fmtPct(c.top100Pct)} of supply · ${report.holders.transferCount} total transfers`;
+  // wrap each concentration figure in a span with risk class so CSS can color it
+  const concSpan = (v) => {
+    const r = v >= 90 ? 'crit' : v >= 70 ? 'high' : v >= 40 ? 'mid' : 'low';
+    return `<span class="conc conc-${r}">${fmtPct(v)}</span>`;
+  };
+  $('holdersFooter').innerHTML =
+    `Total holders: <span class="mono">${report.holders.holderCount}</span> · ` +
+    `Top10 ${concSpan(c.top10Pct)} · ` +
+    `Top50 ${concSpan(c.top50Pct)} · ` +
+    `Top100 ${concSpan(c.top100Pct)} of supply · ` +
+    `<span class="mono">${report.holders.transferCount}</span> total transfers`;
 
   // Pool
   if (report.pool) {
@@ -299,6 +311,21 @@ function renderChart(candles) {
   el.innerHTML = '';
   if (candles.length === 0) {
     el.innerHTML = '<div style="padding:24px;color:var(--muted);text-align:center">No swap history available — not enough data to plot.</div>';
+    return;
+  }
+  // Robust outlier filter — clip to where most price action lives. Use the 5th and
+  // 95th percentile of midpoints, then keep only candles whose entire wick stays in
+  // [p5 * 0.7, p95 * 1.4]. This excludes early launch chaos and zero-volume noise.
+  const mids = candles.map(c => (c.open + c.close) / 2).filter(x => x > 0).sort((a, b) => a - b);
+  const p = (q) => mids[Math.min(mids.length - 1, Math.max(0, Math.floor(q * mids.length)))];
+  const p5 = p(0.05), p95 = p(0.95);
+  const lo = p5 * 0.7, hi = p95 * 1.4;
+  candles = candles.filter(c =>
+    isFinite(c.high) && isFinite(c.low) && c.low > 0 &&
+    c.high <= hi && c.low >= lo
+  );
+  if (candles.length === 0) {
+    el.innerHTML = '<div style="padding:24px;color:var(--muted);text-align:center">All candles fell outside the robust price range.</div>';
     return;
   }
   // Scale values into a numerically friendly range. lightweight-charts can't render
@@ -344,6 +371,8 @@ function renderChart(candles) {
     priceFormat: { type: 'volume' },
     priceScaleId: '',
     scaleMargins: { top: 0.8, bottom: 0 },
+    lastValueVisible: false,
+    priceLineVisible: false,
   });
   state.volumeSeries.setData(candles.map(c => ({
     time: c.time,
@@ -351,6 +380,21 @@ function renderChart(candles) {
     color: c.close >= c.open ? '#2a5a3a' : '#5a2a2a',
   })));
   state.chart.timeScale().fitContent();
+  // Defensive resize: re-measure on next animation frame in case container width
+  // settled after paint (e.g. scrollbar appearing or font load).
+  requestAnimationFrame(() => {
+    if (!state.chart) return;
+    const w = el.offsetWidth, h = el.offsetHeight || 460;
+    if (w > 0) state.chart.resize(w, h);
+  });
+  // Re-fit on window resize so it stays responsive.
+  if (!state._resizeBound) {
+    window.addEventListener('resize', () => {
+      if (!state.chart || !el.offsetWidth) return;
+      state.chart.resize(el.offsetWidth, el.offsetHeight || 460);
+    });
+    state._resizeBound = true;
+  }
 }
 
 // ---- Download JSON ----
