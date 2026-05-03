@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThryxTokenChecks — Base Token Analyzer</title>
+<meta name="description" content="Free, open-source full-history analyzer + buy/sell signal engine for any ERC-20 on Base mainnet. Uniswap V4 native. Runs entirely in your browser.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://api.dexscreener.com">
+<link rel="preconnect" href="https://mainnet.base.org">
+<style>
+  :root {
+    --bg: #0b0d10; --panel: #11151b; --line: #1c222b; --text: #e6e6e6; --muted: #8a96a6; --accent: #a0c4ff;
+    --buy: #6fffaa; --warn: #fff09a; --hold: #aacaff; --tp: #ffc99a; --sell: #ff9a9a;
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; min-height: 100vh; max-width: 1400px; margin-inline: auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; font-weight: 600; }
+  h2 { font-size: 16px; color: var(--accent); margin: 24px 0 8px; font-weight: 600; }
+  h3 { font-size: 14px; margin: 14px 0 6px; }
+  .sub { color: var(--muted); margin-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+  label { display: flex; align-items: center; color: var(--muted); font-size: 12px; margin-bottom: 4px; gap: 4px; }
+  input, select { width: 100%; background: #0a0d12; border: 1px solid var(--line); border-radius: 4px; color: var(--text); padding: 8px 10px; font: 13px ui-monospace, "JetBrains Mono", Consolas, monospace; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent); color: #0a0d12; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+  button:hover { background: #c4d8ff; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: var(--line); color: var(--text); }
+  button.secondary:hover { background: #2a3344; }
+
+  .row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 200px; }
+  .row > div.compact { flex: 0 0 auto; min-width: 0; }
+
+  .progress { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; max-height: 200px; overflow: auto; background: #0a0d12; border-radius: 4px; padding: 8px; margin-top: 12px; }
+
+  .signal { font-size: 32px; font-weight: 700; padding: 12px 20px; border-radius: 6px; display: inline-block; }
+  .BUY { background: #134a2c; color: var(--buy); }
+  .WATCH { background: #444a14; color: var(--warn); }
+  .HOLD { background: #1f3a52; color: var(--hold); }
+  .TAKE_PROFIT { background: #4a3414; color: var(--tp); }
+  .SELL, .AVOID { background: #5a1c1c; color: var(--sell); }
+  .NO_DATA { background: #2a2a2a; color: #888; }
+
+  .kv { display: grid; grid-template-columns: 200px 1fr; gap: 4px 12px; }
+  .kv .k { color: var(--muted); }
+  .mono { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; }
+
+  .disclaimer { background: #2a1a1a; border: 1px solid #5a1c1c; color: var(--sell); padding: 10px 12px; border-radius: 6px; margin: 16px 0; font-weight: 600; font-size: 13px; }
+
+  .promo { background: linear-gradient(135deg, #1f2a44 0%, #11151b 100%); border: 1px solid #2a3a5a; padding: 14px 16px; border-radius: 8px; margin-bottom: 16px; }
+  .promo h3 { color: var(--accent); margin: 0 0 6px; }
+  .promo p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 500; }
+
+  ul.reasons { padding-left: 18px; }
+  ul.reasons li { margin: 4px 0; }
+
+  #chart { height: 460px; }
+
+  a { color: var(--accent); }
+  .hidden { display: none !important; }
+  .err { color: var(--sell); padding: 12px; background: #2a1a1a; border-radius: 6px; border: 1px solid #5a1c1c; }
+
+  footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  .tag { display: inline-block; padding: 2px 6px; border-radius: 3px; background: var(--line); font-size: 11px; color: var(--muted); margin-left: 6px; vertical-align: middle; }
+
+  /* Tooltip — pure CSS hover bubble triggered by an (i) icon */
+  .tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--line); color: var(--muted); font-size: 11px; font-weight: 700; cursor: help; user-select: none; font-family: serif; font-style: italic; }
+  .tip:hover { background: var(--accent); color: #0a0d12; }
+  .tip[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: #0a0d12; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; font-weight: normal; font-style: normal; font-family: -apple-system, system-ui, sans-serif;
+    width: max-content; max-width: 320px; white-space: normal; line-height: 1.4; z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .tip[data-tip]:hover::before {
+    content: ''; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: var(--line); z-index: 101;
+  }
+
+  /* Collapsible advanced section */
+  details { background: #0a0d12; border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin-top: 12px; }
+  details > summary { cursor: pointer; color: var(--muted); font-size: 13px; user-select: none; }
+  details[open] > summary { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>ThryxTokenChecks <span class="tag">client-side only · zero backend</span></h1>
+<div class="sub">Full-history analyzer + buy/sell signal engine for any ERC-20 on Base mainnet. Uniswap V4 native. Runs entirely in your browser.</div>
+
+<div class="disclaimer">⚠ NOT FINANCIAL ADVICE — automated heuristic output for research only. Verify independently. You assume all trading risk.</div>
+
+<div class="promo">
+  <h3>Featured token: THRYX (default)</h3>
+  <p>This tool ships with <strong>THRYX</strong> as the default analysis target — Base mainnet, Uniswap V4. THRYX runs an autonomous AI company you can buy a piece of. Want to swap something else? Paste any token address + V4 poolId below.</p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Settings</h3>
+
+  <div class="row">
+    <div class="compact" style="min-width:170px">
+      <label>
+        Preset
+        <span class="tip" data-tip="Quick-select known tokens. THRYX is loaded by default. Pick 'Custom' to enter your own.">i</span>
+      </label>
+      <select id="preset">
+        <option value="thryx" selected>THRYX (Base / V4)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+
+    <div>
+      <label>
+        Token address
+        <span class="tip" data-tip="The ERC-20 contract address on Base. 40 hex chars after 0x. Find it on basescan.org or copy from dexscreener.com (top of the pair page).">i</span>
+      </label>
+      <input id="tokenInput" placeholder="0x... (40 hex chars)" value="0xc07E889e1816De2708BF718683e52150C20F3BA3">
+    </div>
+
+    <div>
+      <label>
+        Uniswap V4 poolId
+        <span class="tip" data-tip="64-char hex string identifying a V4 pool. Get it from a DexScreener URL: dexscreener.com/base/&lt;poolId&gt; — copy everything after /base/. Leave blank to skip swap-history crawl (you'll still get token metadata + holders).">i</span>
+      </label>
+      <input id="poolInput" placeholder="0x... (64 hex chars, optional)" value="0x5a86f04dbd3e6b532e4397eb605a4c23136dc913e0a60b65547842d2ce7876e8">
+    </div>
+
+    <div class="compact" style="min-width:120px">
+      <label>
+        Candle
+        <span class="tip" data-tip="Time bucket for the OHLC chart. 1m for very active pools, 1h for normal use, 1d for long-term view.">i</span>
+      </label>
+      <select id="candleSelect">
+        <option value="60">1 minute</option>
+        <option value="300">5 minutes</option>
+        <option value="3600" selected>1 hour</option>
+        <option value="86400">1 day</option>
+      </select>
+    </div>
+
+    <div class="compact">
+      <label>&nbsp;</label>
+      <button id="analyzeBtn">Analyze</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>Advanced</summary>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label>
+          From block
+          <span class="tip" data-tip="Earliest block to scan ERC-20 Transfer events from. 0 = scan from genesis (slow but complete). For a recent token you can paste the deployment block to skip empty range.">i</span>
+        </label>
+        <input id="fromBlockInput" type="number" placeholder="0" value="0" min="0">
+      </div>
+      <div>
+        <label>
+          Trade size for cost model ($)
+          <span class="tip" data-tip="The signal engine reports round-trip cost (entry + exit fees, slippage, gas) at this trade size. Default $100. Try $1000 to see slippage on shallow liquidity.">i</span>
+        </label>
+        <input id="tradeSizeInput" type="number" placeholder="100" value="100" min="1">
+      </div>
+      <div>
+        <label>
+          Max swaps to crawl
+          <span class="tip" data-tip="Cap on V4 Swap events fetched from the pool. 5000 covers ~6 months for a moderately active pool. Increase for full history.">i</span>
+        </label>
+        <input id="maxSwapsInput" type="number" placeholder="5000" value="5000" min="100">
+      </div>
+    </div>
+  </details>
+
+  <div id="progress" class="progress hidden"></div>
+</div>
+
+<div id="error" class="err hidden"></div>
+
+<div id="results" class="hidden">
+
+  <h2>Signal</h2>
+  <div class="card">
+    <div id="signalState" class="signal NO_DATA">…</div>
+    <div id="signalKV" class="kv" style="margin-top:14px"></div>
+    <h3>Round-trip cost (entry + exit, % of trade size)</h3>
+    <table>
+      <thead><tr><th>Trade size</th><th>Total</th><th>Pool fee</th><th>Slippage</th><th>Gas</th></tr></thead>
+      <tbody id="rtTable"></tbody>
+    </table>
+    <h3>Reasoning</h3>
+    <ul id="reasons" class="reasons"></ul>
+  </div>
+
+  <h2>Price chart</h2>
+  <div class="card"><div id="chart"></div></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2 style="margin-top:0">Token</h2>
+      <div id="tokenKV" class="kv"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">DexScreener live</h2>
+      <div id="dsKV" class="kv"></div>
+    </div>
+  </div>
+
+  <h2>Holders — top 25</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>#</th><th>Address</th><th>Balance</th></tr></thead>
+      <tbody id="holdersTable"></tbody>
+    </table>
+    <div id="holdersFooter" style="margin-top:8px; color:var(--muted)"></div>
+  </div>
+
+  <h2>Pool (V4)</h2>
+  <div class="card"><div id="poolKV" class="kv"></div></div>
+
+  <div style="display:flex; gap:8px; margin-top:8px">
+    <button id="downloadJson" class="secondary">Download JSON report</button>
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/lordbasilaiassistant-sudo/ThryxTokenChecks">github</a> ·
+  MIT licensed ·
+  <span>NOT FINANCIAL ADVICE</span>
+</footer>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.7/dist/lightweight-charts.standalone.production.js"></script>
+<script type="module" src="./js/app.js"></script>
+
+</body>
+</html>

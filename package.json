@@ -1,0 +1,17 @@
+{
+  "name": "thryx-token-checks",
+  "version": "0.1.0",
+  "description": "Full-history analyzer + chart + buy/sell signal engine for any Base token. Uses an aggregated RPC layer borrowed from RPCagg.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node index.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
