@@ -102,6 +102,40 @@ It does **not** account for:
 If the holders table shows top-10 owning 90%+ and there's a non-zero hooks
 address, the math says nothing useful and you should walk away.
 
+## Trader CLI (live swaps)
+
+The repo also ships an agent-friendly trader at `trade.js` for buying/selling tokens.
+The trader's private key lives in `~/.claude/secrets/thryxtokenchecks.env` (off-OneDrive,
+never committed). Default route is the THRYX Diamond at
+`0x2F77b40c124645d25782CfBdfB1f54C1d76f2cCe` — works for THRYX itself and any token
+launched on the THRYX protocol. For non-THRYX V4 pools, pass `--route universal`
+(Uniswap Universal Router path; not supported for THRYX-launched tokens because
+their V4 hook only allows the Diamond).
+
+```bash
+# Verify all V4/UR/Permit2 contracts are deployed
+node trade.js verify
+
+# Read-only quote (V4 Quoter call, no signer needed)
+node trade.js quote   --side buy  --amount-eth 0.001
+
+# Full plan: encode the swap, eth_call simulate, gas estimate, approval check
+node trade.js plan    --side buy  --amount-eth 0.001 --slippage-bps 200
+
+# Sign + broadcast (default refuses unless --execute is passed AND simulation passes)
+node trade.js execute --side buy  --amount-eth 0.001 --slippage-bps 200 --execute
+
+# One-time ERC20 approval to Diamond (sell-side prerequisite)
+node trade.js approve --execute
+
+# Sell back to ETH
+node trade.js execute --side sell --amount-token 4535689000000000000000000 --slippage-bps 300 --execute
+```
+
+Output is JSON. Exit codes: `0` ok · `2` input error · `3` simulation reverted (refused)
+· `4` approval missing · `5` RPC failure. Designed for both humans and AI agents to
+drive the same way.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
