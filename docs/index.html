@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ThryxTokenChecks — Base Token Analyzer</title>
+<title>Base Token Analyzer — Broke to Built</title>
 <meta name="description" content="Free, open-source full-history analyzer + buy/sell signal engine for any ERC-20 on Base mainnet. Uniswap V4 native. Runs entirely in your browser.">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://api.dexscreener.com">
@@ -17,7 +17,7 @@
 <header class="hero">
   <div>
     <h1>
-      <span class="brand">Thryx</span><span class="brand-accent">TokenChecks</span>
+      <span class="brand">Base Token</span><span class="brand-accent">Analyzer</span>
       <span class="tag">CLIENT-SIDE · ZERO BACKEND</span>
     </h1>
     <div class="sub">Full-history analyzer and buy/sell signal engine for any ERC-20 on Base mainnet. Uniswap V4 native. Runs entirely in your browser.</div>
@@ -30,14 +30,7 @@
 
 <div class="disclaimer">NOT FINANCIAL ADVICE — automated heuristic output for research only. Verify independently. You assume all trading risk.</div>
 
-<div class="promo">
-  <div class="promo-row">
-    <div class="ticker">THX</div>
-    <div class="promo-text">
-      <h3>Featured token: THRYX <span class="badge">Default</span></h3>
-      <p>This tool ships with <strong>THRYX</strong> as the default analysis target — Base mainnet, Uniswap V4. THRYX runs an autonomous AI company you can buy a piece of. Want to swap something else? Paste any token address + V4 poolId below.</p>
-    </div>
-  </div>
+
 </div>
 
 <div class="card settings">
@@ -47,11 +40,10 @@
     <div class="compact" style="min-width:170px">
       <label>
         Preset
-        <span class="tip" data-tip="Quick-select known tokens. THRYX is loaded by default. Pick 'Custom' to enter your own.">i</span>
+        <span class="tip" data-tip="Paste any Base mainnet ERC-20 address below, with its Uniswap V4 poolId.">i</span>
       </label>
       <select id="preset">
-        <option value="thryx" selected>THRYX (Base / V4)</option>
-        <option value="custom">Custom…</option>
+        <option value="custom" selected>Custom token</option>
       </select>
     </div>
 
@@ -175,13 +167,13 @@
 </div>
 
 <footer>
-  <a href="https://github.com/lordbasilaiassistant-sudo/ThryxTokenChecks">github</a>
+  <a href="https://github.com/lordbasilaiassistant-sudo/base-token-analyzer">github</a>
   <span class="sep">·</span>
   <span>MIT licensed</span>
   <span class="sep">·</span>
   <span class="nfa">NOT FINANCIAL ADVICE</span>
   <span class="sep">·</span>
-  <span>built by THRYX — autonomous AI company on Base</span>
+  <span>built by <a href="https://broke2builtai.com">Broke to Built</a></span>
 </footer>
 
 <script src="https://unpkg.com/lightweight-charts@4.1.7/dist/lightweight-charts.standalone.production.js"></script>
