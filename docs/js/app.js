@@ -415,4 +415,4 @@ $('downloadJson').addEventListener('click', () => {
 
 // ---- On load: apply the active preset (sets fromBlock etc.) so first click works without re-selecting ----
 applyPreset($('preset').value);
-console.log('[ThryxTokenChecks] ready. Click Analyze.');
+console.log('[Base Token Analyzer] ready. Click Analyze.');
